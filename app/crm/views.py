@@ -1,6 +1,6 @@
 import uuid
-from app.web.utils import json_response
-from aiohttp.web_exceptions import HTTPNotFound, HTTPUnauthorized
+from app.web.utils import json_response, check_basic_auth
+from aiohttp.web_exceptions import HTTPNotFound, HTTPUnauthorized, HTTPForbidden
 from aiohttp_apispec import docs, request_schema, response_schema, querystring_schema
 
 from app.crm.schemas import UserSchema, ListUsersResponseSchema, UserGetRequestSchema, UserGetResponseSchema, \
@@ -27,20 +27,27 @@ class ListUsersView(View):
     async def get(self):
         if not self.request.headers.get('Authorization'):
             raise HTTPUnauthorized
-
+        if not check_basic_auth(self.request.headers['Authorization'], user_name=self.request.app.config.username,
+                                password=self.request.app.config.password):
+            raise HTTPForbidden
         users = await self.request.app.crm_accessor.list_users()
-        raw_user = [{'email': user.email, 'id': str(user.id_)} for user in users]
+        raw_user = [UserSchema().dump(user) for user in users]
         return json_response(data={'users': raw_user})
 
 
 class GetUserView(View):
     @docs(tags=['crm'], summary='Get user', descriptions='Get user from database')
     @querystring_schema(UserGetRequestSchema)
-    @response_schema(UserGetResponseSchema , 200)
+    @response_schema(UserGetResponseSchema, 200)
     async def get(self):
+        if not self.request.headers.get('Authorization'):
+            raise HTTPUnauthorized
+        if not check_basic_auth(self.request.headers['Authorization'], user_name=self.request.app.config.username,
+                                password=self.request.app.config.password):
+            raise HTTPForbidden
         user_id = self.request.query.get('id')
         user = await self.request.app.crm_accessor.get_user(uuid.UUID(user_id))
         if user:
-            return json_response(data={'user': {'email': user.email, 'id': str(user.id_)}})
+            return json_response(data={'user': UserSchema().dump(user)})
         else:
             raise HTTPNotFound

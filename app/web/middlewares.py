@@ -7,7 +7,7 @@ from aiohttp.web_exceptions import HTTPException, HTTPUnprocessableEntity
 from app.web.utils import error_json_response
 
 if typing.TYPE_CHECKING:
-     from app.web.app import Application
+    from app.web.app import Application
 
 
 @middleware
